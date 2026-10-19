@@ -110,8 +110,19 @@ public class NovelParser {
      * 由脚本动态填充。Android 端用 WebView 实现，桌面测试可注入假实现。
      */
     public interface ContentRenderer {
-        /** 渲染页面并返回可见正文；失败返回 null */
-        String render(String url);
+        /** 一次渲染的结果：text 为可见正文；html 为渲染后的整页 HTML（用于再找分页链接），均可为 null */
+        class RenderedPage {
+            public final String text;
+            public final String html;
+
+            public RenderedPage(String text, String html) {
+                this.text = text;
+                this.html = html;
+            }
+        }
+
+        /** 渲染页面并返回正文与整页 HTML；失败返回 null */
+        RenderedPage render(String url);
     }
 
     private ContentRenderer contentRenderer;
@@ -513,10 +524,24 @@ public class NovelParser {
 
             // 静态 HTML 里没有正文、或只拿到站点“阅读模式”提示页时，用浏览器内核渲染后再取正文
             if (contentRenderer != null && (content == null || needsRender(text))) {
-                String rendered = renderWithBrowser(url);
-                if (rendered != null && squeeze(rendered).length() > squeeze(text).length()) {
-                    Logger.i(TAG, "《" + chapter.title + "》第" + pageNo + "页静态正文缺失，已改用浏览器渲染");
-                    text = rendered;
+                ContentRenderer.RenderedPage page = renderWithBrowser(url);
+                if (page != null) {
+                    if (page.text != null && !page.text.trim().isEmpty()) {
+                        String rendered = normalizeText(page.text);
+                        if (squeeze(rendered).length() > squeeze(text).length()) {
+                            Logger.i(TAG, "《" + chapter.title + "》第" + pageNo + "页静态正文缺失，已改用浏览器渲染");
+                            text = rendered;
+                        }
+                    }
+                    // 渲染站点的分页链接同样由脚本注入：静态页找不到分页时，从渲染后的 DOM 再找一次
+                    if (nextUrl == null && page.html != null && !page.html.isEmpty()) {
+                        Document renderedDoc = Jsoup.parse(page.html, url);
+                        String renderedNext = findChapterNextPage(renderedDoc, url, tocUrl, chapterBase);
+                        if (renderedNext != null) {
+                            Logger.i(TAG, "《" + chapter.title + "》第" + pageNo + "页静态无分页链接，已从渲染页获取: " + renderedNext);
+                            nextUrl = renderedNext;
+                        }
+                    }
                 }
             }
 
@@ -703,13 +728,11 @@ public class NovelParser {
         return s.length() < 60;
     }
 
-    /** 调浏览器渲染器取正文（已做行级清洗）；失败或未注入渲染器返回 null */
-    private String renderWithBrowser(String url) {
+    /** 调浏览器渲染器取一页（正文+整页HTML）；失败或未注入渲染器返回 null */
+    private ContentRenderer.RenderedPage renderWithBrowser(String url) {
         if (contentRenderer == null) return null;
         try {
-            String raw = contentRenderer.render(url);
-            if (raw == null || raw.trim().isEmpty()) return null;
-            return normalizeText(raw);
+            return contentRenderer.render(url);
         } catch (Throwable t) {
             Logger.e(TAG, "浏览器渲染失败: " + url, t);
             return null;
@@ -732,8 +755,11 @@ public class NovelParser {
             String raw = a.text() == null ? "" : a.text().trim();
             String href = a.absUrl("href");
             if (href.isEmpty() || href.equals(currentUrl) || (tocUrl != null && href.equals(tocUrl))) continue;
+            // rel="next" / class 含 next 的语义化链接，即使是纯图标（无文字）也保留候选
+            boolean attrHit = "next".equalsIgnoreCase(a.attr("rel"))
+                    || a.className().toLowerCase().contains("next");
             String s = stripSymbols(raw);
-            if (s.isEmpty()) continue;
+            if (s.isEmpty() && !attrHit) continue;
 
             // 明确排除：上一页/返回/目录/下一章
             if (s.contains("上一") || s.contains("返回") || s.contains("目录")
@@ -742,8 +768,6 @@ public class NovelParser {
             boolean wordHit = CHAPTER_NEXT_WORDS.contains(s);
             boolean prefixHit = s.startsWith("下一页") || s.startsWith("下页") || s.startsWith("查看全文")
                     || s.startsWith("阅读全文") || s.startsWith("展开全文") || s.startsWith("继续阅读");
-            boolean attrHit = "next".equalsIgnoreCase(a.attr("rel"))
-                    || a.className().toLowerCase().contains("next");
             boolean numericText = s.matches("第?\\d{1,3}页?");
 
             if ((wordHit || prefixHit || attrHit || numericText) && isSameChapterPage(currentUrl, href, chapterBase)) {

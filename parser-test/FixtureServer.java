@@ -52,6 +52,7 @@ public class FixtureServer {
         buildSite5();
         buildSite6();
         buildSite7();
+        buildSite8();
 
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/", exchange -> {
@@ -405,6 +406,25 @@ public class FixtureServer {
         for (int i = 0; i < 4; i++) c2.append("<p>").append(MODE_HINT).append("</p>");
         c2.append("</div></body></html>");
         PAGES.put("/site7/html/c2.html", new Page(c2.toString(), "utf-8"));
+    }
+
+    // ===== 站点8：桩站且分页链接也由脚本注入（静态页连“下一页”都没有），
+    //             需从渲染后的 DOM 补找分页链接并拼接多页 =====
+    static void buildSite8() {
+        PAGES.put("/site8/book/88/index.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>渡口晨昏</title></head><body><h1>渡口晨昏</h1>"
+                        + "<div><a href=\"/site8/html/p1.html\">第1章 双页</a></div>"
+                        + "</body></html>", "utf-8"));
+
+        // 两页静态都只有提示语，正文与分页链接均靠渲染注入
+        PAGES.put("/site8/html/p1.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 双页</title></head><body>"
+                        + "<h1>第1章 双页</h1><div id=\"content\"><p>" + MODE_HINT + "</p></div>"
+                        + "</body></html>", "utf-8"));
+        PAGES.put("/site8/html/p1_2.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 双页</title></head><body>"
+                        + "<h1>第1章 双页</h1><div id=\"content\"><p>" + MODE_HINT + "</p></div>"
+                        + "</body></html>", "utf-8"));
     }
 
     static String volChapter(String vol, int n, String sub) {

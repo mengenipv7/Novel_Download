@@ -24,11 +24,12 @@ public class WebViewRenderer implements NovelParser.ContentRenderer {
     /** onPageFinished 之后再等一会，留给脚本填充正文 */
     private static final long SETTLE_MS = 1200L;
 
-    /** 取文字最多的容器（内联文字不含 display:none 元素，未知 id 的正文容器也能拿到） */
-    private static final String PICK_TEXT_JS =
+    /** 取文字最多的容器，同时带回整页 HTML（分页链接也由脚本注入的站点需要再从 DOM 找分页） */
+    private static final String PICK_PAGE_JS =
             "(function(){var b='';var a=document.querySelectorAll('div,section,article');"
                     + "for(var i=0;i<a.length;i++){var t=a[i].innerText||'';if(t.length>b.length)b=t;}"
-                    + "if(!b&&document.body){b=document.body.innerText;}return b;})()";
+                    + "if(!b&&document.body){b=document.body.innerText;}"
+                    + "return JSON.stringify({t:b,h:document.documentElement.outerHTML});})()";
 
     private final Context context;
     private final long timeoutMs;
@@ -43,7 +44,7 @@ public class WebViewRenderer implements NovelParser.ContentRenderer {
     }
 
     @Override
-    public String render(String url) {
+    public NovelParser.ContentRenderer.RenderedPage render(String url) {
         final CountDownLatch done = new CountDownLatch(1);
         final AtomicReference<String> out = new AtomicReference<>();
         new Handler(Looper.getMainLooper()).post(() -> open(url, done, out));
@@ -56,7 +57,27 @@ public class WebViewRenderer implements NovelParser.ContentRenderer {
             Thread.currentThread().interrupt();
             return null;
         }
-        return out.get();
+        return parsePage(out.get());
+    }
+
+    /** JS 返回的是 JSON 字符串：{t: 正文文本, h: 整页 HTML} */
+    private static NovelParser.ContentRenderer.RenderedPage parsePage(String json) {
+        if (json == null || "null".equals(json)) return null;
+        try {
+            Object o = new org.json.JSONTokener(json).nextValue();
+            if (o instanceof String) {
+                o = new org.json.JSONTokener((String) o).nextValue();
+            }
+            if (o instanceof org.json.JSONObject) {
+                org.json.JSONObject obj = (org.json.JSONObject) o;
+                String text = obj.isNull("t") ? null : obj.optString("t", null);
+                String html = obj.isNull("h") ? null : obj.optString("h", null);
+                return new NovelParser.ContentRenderer.RenderedPage(text, html);
+            }
+        } catch (Exception e) {
+            Logger.e(TAG, "解析渲染结果失败", e);
+        }
+        return null;
     }
 
     /** 主线程：创建 WebView 并加载页面 */
@@ -90,11 +111,11 @@ public class WebViewRenderer implements NovelParser.ContentRenderer {
         }, timeoutMs);
     }
 
-    /** 主线程：读取渲染后的正文文本并释放 WebView */
+    /** 主线程：读取渲染后的正文与整页 HTML 并释放 WebView */
     private void extract(WebView web, CountDownLatch done, AtomicReference<String> out) {
         try {
-            web.evaluateJavascript(PICK_TEXT_JS, value -> {
-                out.set(unquote(value));
+            web.evaluateJavascript(PICK_PAGE_JS, value -> {
+                out.set(value);
                 destroy(web);
                 done.countDown();
             });
@@ -102,17 +123,6 @@ public class WebViewRenderer implements NovelParser.ContentRenderer {
             Logger.e(TAG, "读取渲染正文失败", t);
             destroy(web);
             done.countDown();
-        }
-    }
-
-    /** evaluateJavascript 返回的是 JSON 字符串字面量，还原为普通文本 */
-    private static String unquote(String json) {
-        if (json == null || "null".equals(json)) return null;
-        try {
-            Object o = new org.json.JSONTokener(json).nextValue();
-            return o == null ? null : String.valueOf(o);
-        } catch (Exception e) {
-            return json;
         }
     }
 

@@ -148,7 +148,9 @@ public class TestParser {
         // ===== 站点7：静态页只有“阅读模式”提示（正文由脚本注入）→ 浏览器渲染兜底 =====
         NovelParser p7 = new NovelParser();
         p7.setContentRenderer(url -> url.contains("/site7/")
-                ? "渡口的风把灯笼吹得直晃，他蹲在船头数着星星。\n远处的汽笛一声长，夜色沉进江水里。"
+                ? new NovelParser.ContentRenderer.RenderedPage(
+                        "渡口的风把灯笼吹得直晃，他蹲在船头数着星星。\n远处的汽笛一声长，夜色沉进江水里。",
+                        null)
                 : null);
         NovelResult r7 = p7.parseNovel("http://localhost:" + FixtureServer.PORT + "/site7/book/77/index.html", null);
         assertEq("S7 章节数", 2, r7.chapters.size());
@@ -157,6 +159,30 @@ public class TestParser {
         assertTrue("S7 不再残留阅读模式提示", !s7c1.contains("阅读模式"), s7c1);
         String s7c2 = p7.fetchChapterContent(r7.chapters.get(1), null, null);
         assertTrue("S7 提示语凑满容器也能兜底", s7c2.contains("渡口的风把灯笼吹得直晃"), s7c2);
+
+        // ===== 站点8：桩站分页链接也由脚本注入 → 从渲染 DOM 补找分页，拼接多页 =====
+        NovelParser p8 = new NovelParser();
+        p8.setContentRenderer(url -> {
+            if (url.endsWith("/site8/html/p1.html")) {
+                return new NovelParser.ContentRenderer.RenderedPage(
+                        "江枫把船撑离渡口，晨雾还没散。\n他回头望了一眼，灯笼挂在棚柱上。",
+                        "<html><body><div id=\"content\"><p>江枫把船撑离渡口</p></div>"
+                                + "<a href=\"/site8/html/p1_2.html\">下一页</a></body></html>");
+            }
+            if (url.endsWith("/site8/html/p1_2.html")) {
+                return new NovelParser.ContentRenderer.RenderedPage(
+                        "午后的日头照在水面，碎成一片金。\n他把缆绳收紧，船靠上了对岸。",
+                        "<html><body><div id=\"content\"><p>午后的日头照在水面</p></div>"
+                                + "<a href=\"/site8/html/p2.html\">下一章</a></body></html>");
+            }
+            return null;
+        });
+        NovelResult r8 = p8.parseNovel("http://localhost:" + FixtureServer.PORT + "/site8/book/88/index.html", null);
+        assertEq("S8 章节数", 1, r8.chapters.size());
+        String s8 = p8.fetchChapterContent(r8.chapters.get(0), null, null);
+        assertTrue("S8 第一页正文", s8.contains("江枫把船撑离渡口"), s8);
+        assertTrue("S8 渲染分页拼接第二页", s8.contains("午后的日头照在水面"), s8);
+        assertTrue("S8 不把下一章当分页", !s8.contains("阅读模式"), s8);
 
         System.out.println("\n=== SUMMARY: " + passed + " passed, " + failed + " failed ===");
         System.exit(failed == 0 ? 0 : 1);
