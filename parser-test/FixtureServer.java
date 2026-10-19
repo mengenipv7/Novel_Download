@@ -53,6 +53,10 @@ public class FixtureServer {
         buildSite6();
         buildSite7();
         buildSite8();
+        buildSite9();
+        buildSite10();
+        buildSite11();
+        buildSite12();
 
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/", exchange -> {
@@ -424,6 +428,116 @@ public class FixtureServer {
         PAGES.put("/site8/html/p1_2.html", new Page(
                 "<html><head><meta charset=\"utf-8\"><title>第1章 双页</title></head><body>"
                         + "<h1>第1章 双页</h1><div id=\"content\"><p>" + MODE_HINT + "</p></div>"
+                        + "</body></html>", "utf-8"));
+    }
+
+    // ===== 站点9：回顾式分页（bixia002 模式） =====
+    // 第1页 = 正文A1-A8 + 尾部垃圾重复A1-A2；第2页 = 回顾A3-A8 + 新内容B1-B4；第3页 = 全新C1-C3
+    static void buildSite9() {
+        StringBuilder toc = new StringBuilder("<html><head><meta charset=\"utf-8\"><title>渡口回顾</title></head><body><h1>渡口回顾</h1>");
+        toc.append("<div><a href=\"/site9/html/r1.html\">第1章 回顾</a></div></body></html>");
+        PAGES.put("/site9/book/99/index.html", new Page(toc.toString(), "utf-8"));
+
+        StringBuilder p1 = new StringBuilder();
+        for (int i = 1; i <= 8; i++)
+            p1.append("<p>甲").append(i).append("段，渡口的风从江面吹过来，吹得棚口的灯笼直晃。</p>");
+        for (int i = 1; i <= 2; i++) // 尾部垃圾重复段
+            p1.append("<p>甲").append(i).append("段，渡口的风从江面吹过来，吹得棚口的灯笼直晃。</p>");
+        PAGES.put("/site9/html/r1.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 回顾</title></head><body><h1>第1章 回顾</h1>"
+                        + "<div id=\"content\">" + p1 + "</div>"
+                        + "<div class=\"page\"><a href=\"/site9/html/r1_2.html\">下一页</a></div></body></html>", "utf-8"));
+
+        StringBuilder p2 = new StringBuilder();
+        for (int i = 3; i <= 8; i++) // 大段回顾上一页
+            p2.append("<p>甲").append(i).append("段，渡口的风从江面吹过来，吹得棚口的灯笼直晃。</p>");
+        for (int i = 1; i <= 4; i++)
+            p2.append("<p>乙").append(i).append("段，他把船撑离渡口，晨雾还没有散尽。</p>");
+        PAGES.put("/site9/html/r1_2.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 回顾</title></head><body><h1>第1章 回顾</h1>"
+                        + "<div id=\"content\">" + p2 + "</div>"
+                        + "<div class=\"page\"><a href=\"/site9/html/r1_3.html\">下一页</a></div></body></html>", "utf-8"));
+
+        StringBuilder p3 = new StringBuilder();
+        for (int i = 1; i <= 3; i++)
+            p3.append("<p>丙").append(i).append("段，午后的日头照在水面上，碎成一片金箔，他把缆绳收紧，小船轻轻靠上了对岸的码头。</p>");
+        PAGES.put("/site9/html/r1_3.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 回顾</title></head><body><h1>第1章 回顾</h1>"
+                        + "<div id=\"content\">" + p3 + "</div>"
+                        + "<div class=\"page\"><a href=\"/site9/book/99/index.html\">目录</a></div></body></html>", "utf-8"));
+    }
+
+    // ===== 站点10：分类导航 dl/dd 块干扰章节容器识别（hongxiu 模式） =====
+    // 命名容器选择器只命中 8 条分类导航，真正章节列表在未命名容器里，必须靠全页扫描纠正
+    static void buildSite10() {
+        String[] cats = {"现代言情", "古代言情", "浪漫青春", "玄幻奇幻", "武侠仙侠", "科幻灵异", "游戏竞技", "短篇小说"};
+        StringBuilder sb = new StringBuilder("<html><head><meta charset=\"utf-8\"><title>渡口迷航</title></head><body>");
+        sb.append("<div id=\"info\"><h1>渡口迷航</h1><p>作者：测试</p></div>");
+        sb.append("<div class=\"type-list\"><dl>");
+        for (int i = 0; i < cats.length; i++)
+            sb.append("<dd><a href=\"/site10/category/cat_").append(i).append("_f1\">").append(cats[i]).append("</a></dd>");
+        sb.append("</dl></div>");
+        sb.append("<div class=\"book-mulu\"><ul>");
+        for (int i = 1; i <= 12; i++)
+            sb.append("<li><a href=\"/site10/html/").append(i).append(".html\">第").append(i).append("章 迷航</a></li>");
+        sb.append("</ul></div></body></html>");
+        PAGES.put("/site10/book/100/index.html", new Page(sb.toString(), "utf-8"));
+        for (int n = 1; n <= 12; n++) {
+            PAGES.put("/site10/html/" + n + ".html", new Page(
+                    "<html><head><meta charset=\"utf-8\"><title>第" + n + "章 迷航</title></head><body>"
+                            + "<div id=\"content\"><p>第" + n + "章的正文内容。" + filler("江面上的雾越来越浓。", 6) + "</p></div>"
+                            + "</body></html>", "utf-8"));
+        }
+    }
+
+    // ===== 站点11：目录式章节URL（末尾斜杠）+ 页脚杂链（hongxiu 模式） =====
+    // 旧 dirOf 对末尾斜杠会取到全路径，每章各成一组 → 分组失效 → 页脚 .html 杂链混入章节
+    static void buildSite11() {
+        StringBuilder sb = new StringBuilder("<html><head><meta charset=\"utf-8\"><title>斜杠目录站</title></head><body>");
+        sb.append("<div id=\"info\"><h1>雾中渡口</h1><p>作者：测试</p></div>");
+        sb.append("<div class=\"book-mulu2\"><ul>");
+        for (int i = 1; i <= 12; i++)
+            sb.append("<li><a href=\"/site11/read/").append(1000 + i).append("/\">第").append(i).append("章 雾航</a></li>");
+        sb.append("</ul></div>");
+        sb.append("<div class=\"footer\"><a href=\"/site11/about.html\">关于我们</a></div>");
+        sb.append("</body></html>");
+        PAGES.put("/site11/book/7/index.html", new Page(sb.toString(), "utf-8"));
+        for (int n = 1; n <= 12; n++) {
+            PAGES.put("/site11/read/" + (1000 + n) + "/", new Page(
+                    "<html><head><meta charset=\"utf-8\"><title>第" + n + "章 雾航</title></head><body>"
+                            + "<div id=\"content\"><p>第" + n + "章的正文内容。" + filler("雾把渡口吞没了。", 6) + "</p></div>"
+                            + "</body></html>", "utf-8"));
+        }
+        PAGES.put("/site11/about.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>关于我们</title></head><body><p>站点介绍</p></body></html>", "utf-8"));
+    }
+
+    // ===== 站点12：分卷 + 编号笔误噪声回落（hongxiu 斗破模式） =====
+    // 正文1-20章升序但夹一处倒置(16章后是12章)，末尾番外重置为第1章；
+    // 旧逻辑遇到噪声回落即否定分卷 → 番外第1章被重排到卷首
+    static void buildSite12() {
+        StringBuilder sb = new StringBuilder("<html><head><meta charset=\"utf-8\"><title>笔误分卷站</title></head><body>");
+        sb.append("<div id=\"info\"><h1>长河流域</h1><p>作者：测试</p></div>");
+        sb.append("<div id=\"list\"><dl>");
+        for (int i = 1; i <= 20; i++) {
+            if (i == 17) { // 第17个位置错放成第12章（站点局部错序），标题不同以免被同名去重
+                sb.append("<dd><a href=\"/site12/html/17.html\">第12章 逆流</a></dd>");
+                continue;
+            }
+            sb.append("<dd><a href=\"/site12/html/").append(i).append(".html\">第").append(i).append("章 远航</a></dd>");
+        }
+        sb.append("<dd><a href=\"/site12/html/w1.html\">第1章 番外：后来</a></dd>");
+        sb.append("</dl></div></body></html>");
+        PAGES.put("/site12/book/8/index.html", new Page(sb.toString(), "utf-8"));
+        for (int n = 1; n <= 20; n++) {
+            PAGES.put("/site12/html/" + n + ".html", new Page(
+                    "<html><head><meta charset=\"utf-8\"><title>第" + n + "章</title></head><body>"
+                            + "<div id=\"content\"><p>第" + n + "章的正文内容。" + filler("河水向东流去。", 6) + "</p></div>"
+                            + "</body></html>", "utf-8"));
+        }
+        PAGES.put("/site12/html/w1.html", new Page(
+                "<html><head><meta charset=\"utf-8\"><title>第1章 番外：后来</title></head><body>"
+                        + "<div id=\"content\"><p>番外的正文内容。" + filler("许多年后他又回到渡口。", 6) + "</p></div>"
                         + "</body></html>", "utf-8"));
     }
 

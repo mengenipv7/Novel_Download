@@ -280,21 +280,29 @@ public class NovelParser {
      * 但“长段后回落到第1章”也可能是目录分页被轮转打乱（如第101-323章在前、第1-100章在后）：
      * 分卷重新编号必然出现重复章节号（每卷都从第1章起算），若编号全局互不重复，
      * 则属网页顺序错乱，仍应按章节号重排。
+     * <p>
+     * 站点编号笔误/局部错序（如“第一千四三十四章”、366→337 倒置）会产生非分卷的
+     * 噪声回落，不能因此否定整体分卷结构，否则尾部番外的“第1章”会被重排到卷首；
+     * 噪声回落限量容忍，过多才说明目录本身乱序。
      */
     private static boolean isMultiVolumeOrder(long[] keys) {
         long prev = -1;
-        int runLen = 0, resets = 0;
+        int runLen = 0, resets = 0, noise = 0, numbered = 0;
         for (long k : keys) {
             if (k < 0) continue;
+            numbered++;
             if (prev >= 0 && k < prev) {
-                if (runLen < 8 || k > 5) return false;
-                resets++;
-                runLen = 0;
+                if (runLen >= 8 && k <= 5) {
+                    resets++;
+                    runLen = 0;
+                } else {
+                    noise++; // 编号笔误/局部错序，视为噪声而非分卷边界
+                }
             }
             runLen++;
             prev = k;
         }
-        return resets > 0 && hasDupChapterNum(keys);
+        return resets > 0 && noise <= Math.max(4, numbered / 20) && hasDupChapterNum(keys);
     }
 
     /** 章节号是否存在重复（分卷重新编号的判据：各卷编号重叠） */
@@ -398,15 +406,15 @@ public class NovelParser {
             Elements els = doc.select(sel);
             if (best == null || els.size() > best.size()) best = els;
         }
-        if (best == null || best.size() < 5) {
-            Elements all = doc.select("a[href]");
-            Elements filtered = new Elements();
-            for (Element a : all) {
-                String href = a.absUrl("href");
-                if (href.matches(".*(\\.html?|/\\d+/?)$")) filtered.add(a);
-            }
-            if (filtered.size() > (best == null ? 0 : best.size())) best = filtered;
+        // 命名容器选择器可能只命中导航小块（如分类导航 dl/dd，≥5 条即被采纳），
+        // 全页章节样式链接明显更多时改用全页扫描结果，后续按目录分组仍会排除杂链
+        Elements all = doc.select("a[href]");
+        Elements filtered = new Elements();
+        for (Element a : all) {
+            String href = a.absUrl("href");
+            if (href.matches(".*(\\.html?|/\\d+/?)$")) filtered.add(a);
         }
+        if (filtered.size() > (best == null ? 0 : best.size())) best = filtered;
 
         List<ChapterInfo> list = new ArrayList<>();
         if (best != null) {
@@ -414,7 +422,10 @@ public class NovelParser {
                 String text = a.text() == null ? "" : a.text().trim();
                 String href = a.absUrl("href");
                 if (text.isEmpty() || href.isEmpty()) continue;
-                if (NAV_TEXT.matcher(text).find()) continue;
+                // 导航词过滤只适用于“纯导航短链接”：标题里带“求收藏/求推荐/下载”等词
+                // 的正常章节（如“第三章 狂放霸道（新书求收藏）”）不能误杀
+                boolean looksChapter = text.length() > 12 || CN_CHAPTER_NUM.matcher(text).find();
+                if (!looksChapter && NAV_TEXT.matcher(text).find()) continue;
                 if (!href.startsWith("http")) continue;
                 list.add(new ChapterInfo(text, href));
             }
@@ -450,6 +461,9 @@ public class NovelParser {
         try {
             String path = new java.net.URI(url).getPath();
             if (path == null || path.isEmpty()) return "";
+            // 目录式章节 URL 以斜杠结尾（/chapter/123/456/），末尾斜杠会让
+            // lastIndexOf 取到自身，导致每章各成一组、目录分组失效
+            if (path.length() > 1 && path.endsWith("/")) path = path.substring(0, path.length() - 1);
             int i = path.lastIndexOf('/');
             return i >= 0 ? path.substring(0, i + 1) : path;
         } catch (Exception e) {
@@ -598,6 +612,34 @@ public class NovelParser {
                         url = nextUrl;
                         continue;
                     }
+                    // 4b) 大段回顾式分页：新页开头逐字重复“已下载内容”的任意片段（≥40字），
+                    //     剥掉该前缀；若上一页在被重复片段之后还有尾段、且该尾段是其自身
+                    //     前文的逐字重复（站点插入的垃圾重复段），一并从上页末尾截掉
+                    StringBuilder allSb = new StringBuilder();
+                    for (String t : pageTexts) allSb.append(squeeze(t));
+                    String allSq = allSb.toString();
+                    int recap = longestPrefixIn(cur, allSq, 3000);
+                    if (recap >= 40) {
+                        String rest = cur.substring(recap);
+                        if (rest.length() < 20) {
+                            Logger.i(TAG, "《" + chapter.title + "》第" + pageNo + "页几乎整页与已下载内容重复，停止");
+                            break;
+                        }
+                        int occStart = allSq.indexOf(cur.substring(0, recap));
+                        int occEnd = occStart + recap;
+                        String tailAfter = allSq.substring(occEnd);
+                        if (tailAfter.length() >= 40
+                                && allSq.substring(0, occStart).contains(tailAfter)) {
+                            String lastRaw = pageTexts.get(pageTexts.size() - 1);
+                            pageTexts.set(pageTexts.size() - 1,
+                                    stripSqueezedSuffix(lastRaw, tailAfter.length()));
+                            Logger.i(TAG, "《" + chapter.title + "》上一页尾部" + tailAfter.length() + "字为站内垃圾重复段，已截除");
+                        }
+                        Logger.i(TAG, "《" + chapter.title + "》第" + pageNo + "页开头回顾已下载内容" + recap + "字，去重后保留剩余");
+                        pageTexts.add(stripSqueezedPrefix(text, recap));
+                        url = nextUrl;
+                        continue;
+                    }
                     String tail = prev.substring(Math.max(0, prev.length() - 60));
                     int ti = cur.indexOf(tail);
                     // 5) 上一页结尾段出现在新页中间
@@ -688,6 +730,33 @@ public class NovelParser {
         }
         while (i < len && Character.isWhitespace(original.charAt(i))) i++;
         return i < len ? original.substring(i) : "";
+    }
+
+    /** 从原文末尾删除 n 个非空白字符（与 squeeze 计数一致），返回截短后的文本（去尾部空白） */
+    private static String stripSqueezedSuffix(String original, int n) {
+        int i = original.length(), count = 0;
+        while (i > 0 && count < n) {
+            i--;
+            if (!Character.isWhitespace(original.charAt(i))) count++;
+        }
+        while (i > 0 && Character.isWhitespace(original.charAt(i - 1))) i--;
+        return i > 0 ? original.substring(0, i) : "";
+    }
+
+    /** cur 的最长前缀（≤cap）同时是 hay 的子串，用于识别“新页开头回顾已下载内容”；无 ≥40 匹配返回 0 */
+    private static int longestPrefixIn(String cur, String hay, int cap) {
+        int lo = 40, hi = Math.min(cur.length(), cap), best = 0;
+        if (hi < lo) return 0;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            if (hay.contains(cur.substring(0, mid))) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return best;
     }
 
     private String normalizeTitle(String t) {

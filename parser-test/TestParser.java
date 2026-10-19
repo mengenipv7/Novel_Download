@@ -184,6 +184,41 @@ public class TestParser {
         assertTrue("S8 渲染分页拼接第二页", s8.contains("午后的日头照在水面"), s8);
         assertTrue("S8 不把下一章当分页", !s8.contains("阅读模式"), s8);
 
+        // ===== 站点9：回顾式分页 + 页尾垃圾重复段（bixia002 模式） =====
+        NovelResult r9 = p.parseNovel("http://localhost:" + FixtureServer.PORT + "/site9/book/99/index.html", null);
+        assertEq("S9 章节数", 1, r9.chapters.size());
+        String s9c = p.fetchChapterContent(r9.chapters.get(0), null, null);
+        assertTrue("S9 第一页正文保留(甲1段)", s9c.contains("甲1段"), s9c);
+        assertTrue("S9 第二页新内容保留(乙2段)", s9c.contains("乙2段"), s9c);
+        assertTrue("S9 第三页新内容保留(丙2段)", s9c.contains("丙2段"), s9c);
+        assertEq("S9 页尾垃圾重复段只出现一次(甲1段)", 1, s9c.split("甲1段", -1).length - 1);
+        assertEq("S9 大段回顾只出现一次(甲5段)", 1, s9c.split("甲5段", -1).length - 1);
+
+        // ===== 站点10：分类导航 dl/dd 块不能抢占章节容器（hongxiu 模式） =====
+        NovelResult r10 = p.parseNovel("http://localhost:" + FixtureServer.PORT + "/site10/book/100/index.html", null);
+        assertEq("S10 章节数(未被分类导航抢占)", 12, r10.chapters.size());
+        assertEq("S10 首章", "第1章 迷航", r10.chapters.get(0).title);
+        assertEq("S10 末章", "第12章 迷航", r10.chapters.get(11).title);
+        String s10c = p.fetchChapterContent(r10.chapters.get(0), null, null);
+        assertTrue("S10 正文可取", s10c.contains("第1章的正文内容"), s10c);
+
+        // ===== 站点11：目录式章节URL（末尾斜杠）目录分组必须生效，页脚杂链不得混入 =====
+        NovelResult r11 = p.parseNovel("http://localhost:" + FixtureServer.PORT + "/site11/book/7/index.html", null);
+        assertEq("S11 章节数(页脚杂链被排除)", 12, r11.chapters.size());
+        assertEq("S11 首章", "第1章 雾航", r11.chapters.get(0).title);
+        boolean s11junk = false;
+        for (ChapterInfo c : r11.chapters) if (c.title.contains("关于我们")) s11junk = true;
+        assertTrue("S11 无页脚杂链", !s11junk, "");
+
+        // ===== 站点12：分卷 + 编号噪声回落 → 保持原序，番外第1章不得跑到卷首 =====
+        NovelResult r12 = p.parseNovel("http://localhost:" + FixtureServer.PORT + "/site12/book/8/index.html", null);
+        assertEq("S12 章节数", 21, r12.chapters.size());
+        assertEq("S12 首章", "第1章 远航", r12.chapters.get(0).title);
+        assertTrue("S12 第2章位置未被番外抢占", !r12.chapters.get(1).title.contains("番外"),
+                r12.chapters.get(1).title);
+        assertEq("S12 末章为番外(保持原序)", "第1章 番外：后来", r12.chapters.get(20).title);
+        assertEq("S12 错序章保持网页位置", "第12章 逆流", r12.chapters.get(16).title);
+
         System.out.println("\n=== SUMMARY: " + passed + " passed, " + failed + " failed ===");
         System.exit(failed == 0 ? 0 : 1);
     }
