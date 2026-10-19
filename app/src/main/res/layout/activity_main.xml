@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F7F6FB">
+
+    <!-- ===== 顶栏：徽标 + 名称/版本 + 日志入口 ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="8dp">
+        <FrameLayout
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_app_badge">
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_book"
+                android:contentDescription="logo" />
+        </FrameLayout>
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="小说下载器"
+                android:textColor="#1F1235"
+                android:textStyle="bold"
+                android:textSize="18sp" />
+            <TextView
+                android:id="@+id/tvHeaderVersion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="v1.0"
+                android:textColor="#A79FBE"
+                android:textSize="10sp" />
+        </LinearLayout>
+        <ImageView
+            android:id="@+id/btnLogTop"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_log"
+            android:tint="#8A8398"
+            android:contentDescription="运行日志"
+            android:background="?android:attr/selectableItemBackgroundBorderless" />
+    </LinearLayout>
+
+    <!-- ===== 搜索式 URL 输入卡 ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_card"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="4dp"
+        android:elevation="2dp"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:src="@drawable/ic_globe"
+                android:tint="#6D28D9"
+                android:contentDescription="url" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="小说目录页 URL"
+                android:textColor="#1F1235"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 胶囊输入框 + 内嵌解析按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_pill_input"
+            android:layout_marginTop="10dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp">
+            <EditText
+                android:id="@+id/etUrl"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@null"
+                android:minHeight="40dp"
+                android:hint="请输入小说目录页网址"
+                android:textColor="#1F2937"
+                android:textColorHint="#B3ABC8"
+                android:textSize="13sp"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:importantForAutofill="no" />
+            <Button
+                android:id="@+id/btnParse"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="76dp"
+                android:background="@drawable/bg_btn_gradient"
+                android:text="解析"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="支持多页目录自动合并 · 页首预览自动去重 · 正文自动续页"
+            android:textColor="#B3ABC8"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- ===== 快捷入口 chips + 当前下载目录 ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/btnLog"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:gravity="center"
+            android:background="@drawable/bg_chip"
+            android:drawableStart="@drawable/ic_log"
+            android:drawableTint="#16A34A"
+            android:drawablePadding="5dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="运行日志"
+            android:textColor="#16A34A"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/btnChooseDir"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:gravity="center"
+            android:background="@drawable/bg_chip"
+            android:drawableStart="@drawable/ic_folder"
+            android:drawableTint="#6D28D9"
+            android:drawablePadding="5dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="下载目录"
+            android:textColor="#6D28D9"
+            android:textSize="12sp" />
+        <TextView
+            android:id="@+id/tvSavePath"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:textSize="10sp"
+            android:textColor="#A79FBE"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:text="" />
+    </LinearLayout>
+
+    <!-- ===== 结果区：书籍信息 + 进度 + 章节列表 ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:background="@drawable/bg_card"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="4dp"
+        android:elevation="1dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="12dp">
+
+        <TextView
+            android:id="@+id/tvNovelInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#1F1235"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:max="100"
+            android:progress="0"
+            android:layout_marginTop="8dp"
+            android:progressTint="#8B5CF6"
+            android:progressBackgroundTint="#EDE8F7" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp">
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="就绪"
+                android:textSize="11sp"
+                android:textColor="#8A8398"
+                android:maxLines="1"
+                android:ellipsize="end" />
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:minWidth="56dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:text="取消"
+                android:textAllCaps="false"
+                android:textColor="#6D28D9"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ListView
+            android:id="@+id/listViewChapters"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="2dp"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:scrollbars="none"
+            android:paddingTop="2dp" />
+    </LinearLayout>
+
+    <!-- ===== 底部主操作：导出TXT ===== -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp">
+        <Button
+            android:id="@+id/btnExport"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/bg_btn_gradient"
+            android:text="导出 TXT"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="15sp" />
+        <Button
+            android:id="@+id/btnOpenFile"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_btn_outline"
+            android:text="打开"
+            android:textAllCaps="false"
+            android:textColor="#6D28D9"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvVersion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingBottom="6dp"
+        android:textSize="10sp"
+        android:textColor="#C5BEDA"
+        android:text="" />
+
+</LinearLayout>

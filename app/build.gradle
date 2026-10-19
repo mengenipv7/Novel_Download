@@ -1,0 +1,65 @@
+import java.util.Properties
+
+plugins {
+    id 'com.android.application'
+}
+
+// --- version from version.properties ---
+def versionPropsFile = rootProject.file("version.properties")
+def versionProps = new Properties()
+versionPropsFile.withInputStream { versionProps.load(it) }
+def vCode = versionProps.getProperty("VERSION_CODE").toInteger()
+def vName = versionProps.getProperty("VERSION_NAME")
+
+android {
+    namespace 'com.noveldownloader'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.noveldownloader"
+        minSdk 24
+        targetSdk 36
+        versionCode vCode
+        versionName vName
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            def ksFile = rootProject.file("keystore/release.keystore")
+            def ksPropsFile = rootProject.file("keystore/keystore.properties")
+            def ksProps = new Properties()
+            if (ksPropsFile.exists()) {
+                ksPropsFile.withInputStream { ksProps.load(it) }
+            }
+            storeFile ksFile.exists() ? ksFile : null
+            storePassword ksProps.getProperty("storePassword", "novel123456")
+            keyAlias ksProps.getProperty("keyAlias", "novel")
+            keyPassword ksProps.getProperty("keyPassword", "novel123456")
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            applicationIdSuffix ".debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'org.jsoup:jsoup:1.18.3'
+}

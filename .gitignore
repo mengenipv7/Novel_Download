@@ -1,0 +1,24 @@
+# 构建产物（不入库）
+build/
+.gradle/
+app/build/
+builds/
+
+# 本地环境配置
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# 签名与密钥（禁止入库）
+keystore/
+*.keystore
+*.jks
+
+# 测试 / 临时产物
+parser-test/out/
+output/
+*.log
+
+# 系统
+Thumbs.db
